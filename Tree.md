@@ -1,3 +1,79 @@
+# 114. 二叉树展开为链表
+
+展开后的单链表应该与二叉树 先序遍历 顺序相同。
+
+``` cpp
+class Solution {
+public:
+
+    TreeNode* preorder(TreeNode* root){
+        if (root == nullptr) {
+            return nullptr;
+        }
+
+        TreeNode* tmpRight = root->right;
+        root->right = preorder(root->left);
+        root->left = nullptr;
+        TreeNode* p = root;
+        while (p->right != nullptr) {
+            p = p->right;
+        }
+        p->right = preorder(tmpRight);
+        return root;
+    }
+
+    void flatten(TreeNode* root) {
+        preorder(root);
+    }
+};
+```
+
+# 116. 填充每个节点的下一个右侧节点指针
+
+``` cpp
+class Solution {
+public:
+    Node* connect(Node* root) {
+        if(root == nullptr){
+            return root;
+        }
+        vector<vector<Node*>> vecList;
+        queue<Node*> q;
+        q.push(root);
+        while (!q.empty()) {
+            int size = q.size();
+            vector<Node*> tmpVec;
+            tmpVec.reserve(size);
+            while(size > 0){
+                Node* tmp = q.front();
+                q.pop();
+                tmpVec.push_back(tmp);
+                if (tmp->left != nullptr) {
+                    q.push(tmp->left);
+                }
+                if (tmp->right != nullptr) {
+                    q.push(tmp->right);
+                }
+                size--;
+            }
+            vecList.push_back(tmpVec);
+        }
+        for(auto& vec : vecList){
+            for (int i = 0; i < vec.size();i++){
+                if(i + 1 <= vec.size() - 1){
+                    vec[i]->next = vec[i+1];
+                } else {
+                    vec[i]->next = nullptr;
+                }
+            }
+        }
+        return root;
+    }
+};
+```
+
+
+
 # 二叉树中的最大路径和
 ``` cpp
 class Solution {
@@ -106,43 +182,47 @@ public:
 };
 ```
 
-# 从先序遍历和中序遍历构造二叉树
+# 105. 从前序与中序遍历序列构造二叉树
++ 定位根节点IDX, 递归
++ 106. 从中序与后序遍历序列构造二叉树 同理
+
 ``` cpp
 class Solution {
-private:
-    unordered_map<int, int> index;
-
 public:
-    TreeNode* myBuildTree(const vector<int>& preorder, const vector<int>& inorder, int preorder_left, int preorder_right, int inorder_left, int inorder_right) {
-        if (preorder_left > preorder_right) {
+    int find_idx(vector<int>& vec, int s, int e, int val){
+        if (s < 0 || e >= vec.size()) {
+            return -1;
+        }
+        for (int i = s; i <= e; i++) {
+            if (vec[i] == val) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    TreeNode* build(vector<int>& preorder, int sp, int ep, vector<int>& inorder, int si, int ei){
+        if (sp < 0 || sp >= preorder.size() || ep >= preorder.size() || sp > ep ) {
             return nullptr;
         }
-        
-        // 前序遍历中的第一个节点就是根节点
-        int preorder_root = preorder_left;
-        // 在中序遍历中定位根节点
-        int inorder_root = index[preorder[preorder_root]];
-        
-        // 先把根节点建立出来
-        TreeNode* root = new TreeNode(preorder[preorder_root]);
-        // 得到左子树中的节点数目
-        int size_left_subtree = inorder_root - inorder_left;
-        // 递归地构造左子树，并连接到根节点
-        // 先序遍历中「从 左边界+1 开始的 size_left_subtree」个元素就对应了中序遍历中「从 左边界 开始到 根节点定位-1」的元素
-        root->left = myBuildTree(preorder, inorder, preorder_left + 1, preorder_left + size_left_subtree, inorder_left, inorder_root - 1);
-        // 递归地构造右子树，并连接到根节点
-        // 先序遍历中「从 左边界+1+左子树节点数目 开始到 右边界」的元素就对应了中序遍历中「从 根节点定位+1 到 右边界」的元素
-        root->right = myBuildTree(preorder, inorder, preorder_left + size_left_subtree + 1, preorder_right, inorder_root + 1, inorder_right);
+        if (sp == ep) {
+            return new TreeNode(preorder[sp]);
+        }
+        int root_val = preorder[sp];
+        TreeNode* root = new TreeNode(root_val);
+        int root_idx_in_inorder = find_idx(inorder, si, ei, root_val);
+        int left_len = root_idx_in_inorder - si;
+        root->left = build(preorder, sp + 1, sp + left_len, inorder, si, si + left_len -1);
+        root->right = build(preorder, sp + left_len + 1, ep, inorder, si + left_len + 1, ei);
         return root;
     }
 
     TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
-        int n = preorder.size();
-        // 构造哈希映射，帮助我们快速定位根节点
-        for (int i = 0; i < n; ++i) {
-            index[inorder[i]] = i;
+        int p_size = preorder.size();
+        int i_size = inorder.size();
+        if (p_size != i_size) {
+            return nullptr;
         }
-        return myBuildTree(preorder, inorder, 0, n - 1, 0, n - 1);
+        return build(preorder, 0, p_size - 1, inorder, 0, p_size - 1);
     }
 };
 
@@ -321,34 +401,172 @@ public:
 
 ```
 
-# 二插搜索树的删除
+# 450. 删除二叉搜索树中的节点
 ``` cpp
 class Solution {
 public:
-    TreeNode* deleteNode(TreeNode* root, int key) 
-    {
+    TreeNode* find_min_node_in_bst(TreeNode* node) {
+        if (node == nullptr) {
+            return nullptr;
+        }
+        while(node->left != nullptr) {
+            node = node->left;
+        }
+        return node;
+    }
+
+
+    TreeNode* deleteNode(TreeNode* root, int key) {
         if (root == nullptr) {
             return nullptr;
         }
-        if (key > root->val) {
-            root->right = deleteNode(root->right, key);     // 去右子树删除
-        } else if (key < root->val) {
-            root->left = deleteNode(root->left, key);  // 去左子树删除
-        } else {   // 当前节点就是要删除的节点
-            if (root->left == nullptr)  {
-                return root->right; // 情况1，欲删除节点无左子
+        if (root->val > key) {
+            root->left = deleteNode(root->left, key);
+        } else if (root->val < key) {
+            root->right = deleteNode(root->right, key);
+        } else {
+            if(root->right == nullptr){
+                root = root->left;
+            } else if(root->left == nullptr) {
+                root = root->right;
+            } else {
+                TreeNode* newRoot = find_min_node_in_bst(root->right);
+                root->val = newRoot->val;
+                // 一定得用到返回值，即root->right = XXX
+                root->right = deleteNode(root->right, newRoot->val);
             }
-            if (root->right == nullptr) {
-                return root->left;  // 情况2，欲删除节点无右子
-            } 
-            TreeNode* node = root->right;           // 情况3，欲删除节点左右子都有 
-            while (node->left){// 寻找欲删除节点右子树的最左节点
-                node = node->left;
-            }          
-            node->left = root->left;    // 将欲删除节点的左子树成为其右子树的最左节点的左子树
-            root = root->right;         // 欲删除节点的右子顶替其位置，节点被删除
+            
         }
-        return root;    
+        return root;
+    }
+};
+```
+
+# 98. 验证二叉搜索树
+
++ BST 中序遍历有序
+
+``` cpp
+class Solution {
+private:
+    int cur = INT_MIN;
+    bool is_start = false;
+    bool res = true;
+public:
+    
+    void inorder(TreeNode* node) {
+        if (node == nullptr) {
+            return;
+        }
+        if (res == false) {
+            return;
+        }
+        inorder(node->left);
+        if (is_start && cur >= node->val) {
+            res = false;
+            return;
+        } else {
+            cur = node->val;
+            if(is_start == false) {
+                is_start = true;
+            }
+        }
+        inorder(node->right);
+    }
+    bool isValidBST(TreeNode* root) {
+        if (root == nullptr) {
+            return true;
+        }
+        inorder(root);
+        return res;
+    }
+};
+```
+# 701. 二叉搜索树中的插入操作
+
+
+``` cpp
+class Solution {
+private:
+    bool isInserted = false;
+public:
+    TreeNode* insertIntoBST(TreeNode* root, int val) {
+        if (root == nullptr) {
+            return new TreeNode(val);
+        }
+        if (val == root->val) {
+            isInserted = true;
+            return root;
+        }
+        if (isInserted == true) {
+            return root;
+        }
+        if (root->val > val) {
+            if(root->left == nullptr){
+                root->left = new TreeNode(val);
+                isInserted = true;
+            } else {
+                root->left = insertIntoBST(root->left, val);
+            }
+        }
+
+        if (root->val < val) {
+            if (root->right == nullptr){
+                root->right = new TreeNode(val);
+                isInserted = true;
+            } else {
+                root->right = insertIntoBST(root->right, val);
+            }
+        }
+        return root;
+    }
+};
+```
+
+# 230. 二叉搜索树中第K小的元素
+``` cpp
+class Solution {
+private:
+    int rank = 0;
+    int res = INT_MIN;
+public:
+    void preorder(TreeNode* root, int k){
+        if (root == nullptr || rank == k) {
+            return;
+        }
+        preorder(root->left, k);
+        rank++;
+        if (rank == k) {
+            res = root->val;
+            return;
+        }
+        preorder(root->right, k);
+    }
+    int kthSmallest(TreeNode* root, int k) {
+        preorder(root, k);
+        return res;
+    }
+};
+```
+
+# 538/1038. 把二叉搜索树转换为累加树
+``` cpp
+class Solution {
+private:
+    int sum = 0;
+public:
+    void inorder(TreeNode* node) {
+        if (node == nullptr) {
+            return;
+        }
+        inorder(node->right);
+        sum += node->val;
+        node->val = sum;
+        inorder(node->left);
+    }
+    TreeNode* bstToGst(TreeNode* root) {
+        inorder(root);
+        return root;
     }
 };
 ```
@@ -372,3 +590,155 @@ public:
 };
 
 ```
+
+# 700. 二叉搜索树中的搜索
+``` cpp
+class Solution {
+public:
+    TreeNode* searchBST(TreeNode* root, int val) {
+        if (root == nullptr) {
+            return nullptr;
+        }
+        if (root->val == val) {
+            return root;
+        }
+        TreeNode* res = nullptr;
+        if (root->val > val) {
+            res = searchBST(root->left, val);
+        }
+        if(root->val < val) {
+            res = searchBST(root->right, val);
+        }
+        return res;
+    }
+};
+```
+
+# 95. 不同的二叉搜索树 II (打印出全部的树)
+
+``` cpp
+class Solution {
+private:
+    vector<TreeNode*> res;
+public:
+    vector<TreeNode*> dfs(int s, int e){
+        if(s > e){
+            return {};
+        }
+        if(s == e){
+            vector<TreeNode*> vec;
+            vec.push_back(new TreeNode(s));
+            return vec;
+        }
+        vector<TreeNode*> tmpRes;
+        for (int i = s; i <= e; i++) {
+            vector<TreeNode*> lTrees = dfs(s, i - 1);
+            vector<TreeNode*> rTrees = dfs(i + 1, e);
+            
+            if(lTrees.empty()){
+                lTrees.push_back(nullptr);
+            }
+            if(rTrees.empty()){
+                rTrees.push_back(nullptr);
+            }
+
+            for(int j = 0; j < lTrees.size(); j++) {
+                for (int k = 0; k < rTrees.size(); k++) {
+                    TreeNode* root = new TreeNode(i);
+                    if(lTrees[j] != nullptr){
+                        root->left = lTrees[j];
+                    }
+                    if(rTrees[k] != nullptr) {
+                        root->right = rTrees[k];
+                    }
+                    tmpRes.push_back(root);
+                }
+            }
+        }
+        return tmpRes;
+    }
+    
+    vector<TreeNode*> generateTrees(int n) {
+        return dfs(1, n);
+    }
+};
+```
+
+# 652. 寻找重复的子树
+
+``` cpp
+class Solution {
+private:
+    unordered_map<string, int> record;
+    vector<TreeNode*> res;
+public:
+
+    string find(TreeNode* node){
+        if (node == nullptr) {
+            return "#";
+        }
+        string lStr = find(node->left);
+        string rStr = find(node->right);
+        //这个相加的顺序很重要
+        string root_str = to_string(node->val) +  ","  + lStr + "," + rStr;
+        record[root_str]++;
+        if( record[root_str] == 2){
+            res.push_back(node);
+        }
+        
+        return root_str;
+
+    }
+    vector<TreeNode*> findDuplicateSubtrees(TreeNode* root) {
+        find(root);
+        return res;
+    }
+};
+```
+
+# 654. 最大二叉树
+给定一个不含重复元素的整数数组 nums 。一个以此数组直接递归构建的 最大二叉树 定义如下：
+
+二叉树的根是数组 nums 中的最大元素。
+左子树是通过数组中 最大值左边部分 递归构造出的最大二叉树。
+右子树是通过数组中 最大值右边部分 递归构造出的最大二叉树。
+返回有给定数组 nums 构建的 最大二叉树 。
+
+``` cpp
+class Solution {
+public:
+    int find_max_idx(vector<int>& nums, int s, int e) {
+        if (s <0 || e >= nums.size() || s > e){
+            return -1;
+        }
+        int max = INT_MIN;
+        int max_idx = -1;
+        for (int i = s; i <= e; i++) {
+            if (nums[i] > max) {
+                max = nums[i];
+                max_idx = i;
+            }
+        }
+        return max_idx;
+    }
+
+    TreeNode* constructMaximumBinaryTree(vector<int>& nums, int s, int e) {
+        int root_idx = find_max_idx(nums, s, e);
+        if(root_idx == -1){
+            return nullptr;
+        }
+        TreeNode* root = new TreeNode(nums[root_idx]);
+        TreeNode* left = constructMaximumBinaryTree(nums, s, root_idx - 1);
+        TreeNode* right = constructMaximumBinaryTree(nums, root_idx + 1, e);
+        root->left = left;
+        root->right = right;
+        return root;
+    }
+
+
+    TreeNode* constructMaximumBinaryTree(vector<int>& nums) {
+        return constructMaximumBinaryTree(nums, 0, nums.size()-1);
+    }
+};
+```
+
